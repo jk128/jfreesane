@@ -36,7 +36,9 @@ public class SaneInputStream extends InputStream {
 
   public List<SaneDevice> readDeviceList() throws IOException, SaneException {
     // Status first
+	  System.out.println("reading status");
     SaneStatus status = readStatus();
+    System.out.println("status read");
 
     if (!SaneStatus.STATUS_GOOD.equals(status)) {
       throw new SaneException(status);

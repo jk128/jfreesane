@@ -53,6 +53,7 @@ public class SaneSession implements Closeable {
    */
   public static SaneSession withRemoteSane(InetAddress saneAddress, int port) throws IOException {
     Socket socket = new Socket(saneAddress, port);
+    socket.setTcpNoDelay(true);
     SaneSession session = new SaneSession(socket);
     session.initSane();
     return session;
@@ -82,6 +83,7 @@ public class SaneSession implements Closeable {
    */
   public List<SaneDevice> listDevices() throws IOException, SaneException {
     outputStream.write(SaneRpcCode.SANE_NET_GET_DEVICES);
+    outputStream.flush();
     return inputStream.readDeviceList();
   }
 
@@ -98,8 +100,10 @@ public class SaneSession implements Closeable {
   SaneDeviceHandle openDevice(SaneDevice device) throws IOException, SaneException {
     outputStream.write(SaneRpcCode.SANE_NET_OPEN);
     outputStream.write(device.getName());
-
+    outputStream.flush();
+    System.out.println("reading status");
     SaneWord status = inputStream.readWord();
+    System.out.println("status read");
 
     if (status.integerValue() != 0) {
       throw new SaneException(SaneStatus.fromWireValue(status.integerValue()));
@@ -128,7 +132,7 @@ public class SaneSession implements Closeable {
     do {
       outputStream.write(SaneRpcCode.SANE_NET_START);
       outputStream.write(handle.getHandle());
-
+      outputStream.flush();
       {
         int status = inputStream.readWord().integerValue();
         if (status != 0) {
@@ -156,7 +160,7 @@ public class SaneSession implements Closeable {
       // Ask the server for the parameters of this scan
       outputStream.write(SaneRpcCode.SANE_NET_GET_PARAMETERS);
       outputStream.write(handle.getHandle());
-
+      outputStream.flush();
       Socket imageSocket = null;
 
       try {
@@ -189,7 +193,7 @@ public class SaneSession implements Closeable {
     // RPC code
     outputStream.write(SaneRpcCode.SANE_NET_CLOSE);
     outputStream.write(handle.getHandle());
-
+    outputStream.flush();
     // read the dummy value from the wire, if it doesn't throw an exception
     // we assume the close was successful
     inputStream.readWord();
@@ -199,7 +203,7 @@ public class SaneSession implements Closeable {
     // RPC code
     outputStream.write(SaneRpcCode.SANE_NET_CANCEL);
     outputStream.write(handle.getHandle());
-
+    outputStream.flush();
     // read the dummy value from the wire, if it doesn't throw an exception
     // we assume the cancel was successful
     inputStream.readWord();
@@ -214,7 +218,7 @@ public class SaneSession implements Closeable {
 
     // username
     outputStream.write(System.getProperty("user.name"));
-
+    outputStream.flush();
     inputStream.readWord();
     inputStream.readWord();
   }
@@ -233,7 +237,7 @@ public class SaneSession implements Closeable {
     // RPC code FOR SANE_NET_AUTHORIZE
     outputStream.write(SaneRpcCode.SANE_NET_AUTHORIZE);
     outputStream.write(resource);
-
+    outputStream.flush();
     if (!passwordProvider.canAuthenticate(resource)) {
       // the password provider has indicated that there's no way it can provide
       // credentials for this request.
@@ -243,6 +247,7 @@ public class SaneSession implements Closeable {
 
     outputStream.write(passwordProvider.getUsername(resource));
     writePassword(resource, passwordProvider.getPassword(resource));
+    outputStream.flush();
     // Read reply - from network
     inputStream.readWord();
   }
